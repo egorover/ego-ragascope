@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Конфигурация проекта RAG с ChromaDB и RAGAS
 Поддержка: Российский Proxy API (основной) и OpenAI API (опционально)
