@@ -1,0 +1,6 @@
+# Кодировка и переносы строк
+* text=auto eol=lf
+*.py text encoding=utf-8
+*.md text encoding=utf-8
+*.txt text encoding=utf-8
+.env.example text encoding=utf-8

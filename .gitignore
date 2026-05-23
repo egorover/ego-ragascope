@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 .venv/
+.venv-lock/
 venv/
 
 # Node
@@ -19,6 +20,16 @@ Thumbs.db
 
 # Secrets
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
 
 # ChromaDB
 chroma_db/
+
+# Python tooling
+.pytest_cache/
+.coverage
+htmlcov/

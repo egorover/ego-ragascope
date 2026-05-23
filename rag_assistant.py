@@ -1,184 +1,154 @@
 # -*- coding: utf-8 -*-
 """
-RAG-ассистент: поиск релевантного контекста и генерация ответов
-Поддержка: Российский Proxy API (основной) и OpenAI API (опционально)
+RAG-ассистент: поиск релевантного контекста и генерация ответов.
+Поддержка: Российский Proxy API (основной) и OpenAI API (опционально).
 """
-from openai import OpenAI
+import sys
+
 import chromadb
 from chromadb.config import Settings
-import config
 
-# Инициализация клиентов
-# Создаем клиента в зависимости от выбранного провайдера
-if config.API_PROVIDER == "openai":
-    openai_client = OpenAI(
-        api_key=config.OPENAI_API_KEY
-    )
-else:
-    # Российский Proxy API
-    openai_client = OpenAI(
-        api_key=config.PROXY_API_KEY if config.PROXY_API_KEY else "dummy-key",
-        base_url=config.PROXY_API_URL
-    )
-    
+import config
+from utils.console import configure_stdio_utf8
+from utils.openai_client import create_openai_client
+
+configure_stdio_utf8()
+
+openai_client = create_openai_client()
+
 chroma_client = chromadb.PersistentClient(
     path=config.CHROMA_DB_PATH,
-    settings=Settings(anonymized_telemetry=False)
+    settings=Settings(anonymized_telemetry=False),
 )
 
-# Получаем или создаем коллекцию
 try:
     collection = chroma_client.get_collection("rag_collection")
 except Exception:
     print("Коллекция 'rag_collection' не найдена. Сначала запустите: python ingest.py")
-    exit(1)
+    sys.exit(1)
 
 
 def get_embedding(text: str) -> list[float]:
-    """
-    Получение эмбеддинга для текста через OpenAI
-    """
+    """Получение эмбеддинга для текста через OpenAI-совместимый API."""
     response = openai_client.embeddings.create(
         model=config.EMBEDDING_MODEL,
-        input=text
+        input=text,
     )
     return response.data[0].embedding
-    
+
 
 def search_relevant_chunks(query: str, top_k: int = config.TOP_K) -> list[dict]:
     """
-    Поиск релевантных чанков в ChromaDB
-    
-    Args:
-        query: вопрос пользователя
-        top_k: количество возвращаемых чанков
-    
+    Поиск релевантных чанков в ChromaDB.
+
     Returns:
         список словарей с полями: document, metadata, distance
     """
-    # Создаём эмбеддинг для запроса
     query_embedding = get_embedding(query)
-    
-    # Ищем релевантные чанки
+
     results = collection.query(
         query_embeddings=[query_embedding],
-        n_results=top_k
+        n_results=top_k,
     )
-    
-    # Формируем результат в удобном формате
+
     chunks = []
-    if results['documents'] and len(results['documents'][0]) > 0:
-        for i in range(len(results['documents'][0])):
-            chunks.append({
-                'document': results['documents'][0][i],
-                'metadata': results['metadatas'][0][i],
-                'distance': results['distances'][0][i] if 'distances' in results else None
-            })
-    
+    if results["documents"] and len(results["documents"][0]) > 0:
+        for i in range(len(results["documents"][0])):
+            chunks.append(
+                {
+                    "document": results["documents"][0][i],
+                    "metadata": results["metadatas"][0][i],
+                    "distance": results["distances"][0][i]
+                    if "distances" in results
+                    else None,
+                }
+            )
+
     return chunks
 
 
 def generate_answer(query: str, context_chunks: list[dict]) -> str:
-    """
-    Генерация ответа на основе контекста через OpenAI
-    
-    Args:
-        query: вопрос пользователя
-        context_chunks: список релевантных чанков
-    
-    Returns:
-        ответ ассистента
-    """
-    # Собираем контекст из чанков
-    context = "\n\n".join([
-        f"[Источник: {chunk['metadata']['source']}]\n{chunk['document']}"
-        for chunk in context_chunks
-    ])
-    
-    # Системная инструкция
-    system_prompt = "Ты — полезный ассистент. Отвечай строго на основе предоставленного контекста. Если в контексте нет информации для ответа, так и скажи."
-    
-    # Промпт с контекстом
+    """Генерация ответа на основе контекста."""
+    context = "\n\n".join(
+        [
+            f"[Источник: {chunk['metadata']['source']}]\n{chunk['document']}"
+            for chunk in context_chunks
+        ]
+    )
+
+    system_prompt = (
+        "Ты — полезный ассистент. Отвечай строго на основе предоставленного контекста. "
+        "Если в контексте нет информации для ответа, так и скажи."
+    )
+
     user_prompt = f"""Контекст:
 {context}
 
 Вопрос: {query}
 
 Ответ:"""
-    
-    # Отправляем запрос в OpenAI
+
     response = openai_client.chat.completions.create(
         model=config.CHAT_MODEL,
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
+            {"role": "user", "content": user_prompt},
         ],
-        temperature=0.1  # Низкая температура для более точных ответов
+        temperature=0.1,
     )
-    
+
     return response.choices[0].message.content
 
 
 def ask_assistant(query: str) -> dict:
     """
-    Основная функция ассистента: поиск контекста и генерация ответа
-    
-    Args:
-        query: вопрос пользователя
-    
+    Основная функция ассистента: поиск контекста и генерация ответа.
+
     Returns:
-        словарь с ответом и контекстом
+        словарь с ключами answer и context
     """
-    # Ищем релевантные чанки
     chunks = search_relevant_chunks(query)
-    
+
     if not chunks:
         return {
             "answer": "Извините, не удалось найти релевантную информацию в базе знаний.",
-            "context": []
+            "context": [],
         }
-    
-    # Генерируем ответ
+
     answer = generate_answer(query, chunks)
-    
-    return {
-        "answer": answer,
-        "context": chunks
-    }
+
+    return {"answer": answer, "context": chunks}
 
 
-def main():
-    """
-    CLI интерфейс для взаимодействия с ассистентом
-    """
+def main() -> None:
+    """CLI для взаимодействия с ассистентом."""
     print("=" * 60)
     print("RAG-ассистент готов к работе!")
     print("Введите ваш вопрос (или 'exit' для выхода)")
     print("=" * 60)
-    
+
     while True:
         query = input("\nВопрос: ").strip()
-        
-        if query.lower() in ['exit', 'quit', 'выход']:
+
+        if query.lower() in ("exit", "quit", "выход"):
             print("До свидания!")
             break
-        
+
         if not query:
             continue
-        
+
         print("\nОбработка запроса...")
         result = ask_assistant(query)
-        
+
         print("\n" + "=" * 60)
         print("Ответ:")
         print(result["answer"])
         print("=" * 60)
-        
-        # Опционально показываем источники
+
         if result["context"]:
             print(f"\nНайдено релевантных чанков: {len(result['context'])}")
             show_sources = input("Показать источники? (y/n): ").strip().lower()
-            if show_sources == 'y':
+            if show_sources == "y":
                 for i, chunk in enumerate(result["context"], 1):
                     print(f"\n--- Источник {i} ---")
                     print(f"Файл: {chunk['metadata']['source']}")
@@ -188,4 +158,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

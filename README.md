@@ -29,7 +29,7 @@ pip install -r requirements.txt
 ### Вариант 1: Российский Proxy API (рекомендуется)
 ```
 API_PROVIDER=proxy
-PROXY_API_URL=https://proxy.api.example.com/v1
+PROXY_API_URL=https://api.proxyapi.ru/openai/v1
 PROXY_API_KEY=your_proxy_api_key_here
 ```
 
@@ -75,18 +75,44 @@ python evaluate_rag.py
 - **Answer Relevancy** - релевантность ответа вопросу
 - **Context Precision** - точность выбранного контекста
 
+## Тестирование
+
+Офлайн-тесты (без API-ключей):
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Перед первым запуском ассистента выполните индексацию: `python ingest.py`.
+
+## Безопасность
+
+- Файл `.env` **не коммитить** — он в `.gitignore`.
+- Используйте `.env.example` как шаблон с плейсхолдерами.
+- При `API_PROVIDER=proxy` обязательны `PROXY_API_URL` и `PROXY_API_KEY`.
+- Если `.env` ранее попадал в Git, **ротируйте ключи** в консоли провайдера.
+- Подробный отчёт аудита: [AUDIT_REPORT.md](AUDIT_REPORT.md).
+
+## Кодировка
+
+Все текстовые файлы проекта — **UTF-8**. На Windows для корректного вывода кириллицы в консоли скрипты автоматически переключают stdout/stderr на UTF-8 (`utils/console.py`).
+
 ## Структура проекта
 
 ```
 ego-ragascope/
-├── data/              # Исходные документы
-├── chroma_db/         # Локальная база ChromaDB (создаётся автоматически)
-├── ingest.py          # Скрипт индексации
-├── rag_assistant.py   # RAG-ассистент
-├── evaluate_rag.py    # Оценка через RAGAS
-├── config.py          # Конфигурация
-├── requirements.txt   # Зависимости
-├── .env               # Переменные окружения (не коммитить!)
-└── README.md          # Документация
+├── data/                 # Исходные документы (UTF-8)
+├── tests/                # Офлайн-тесты
+├── utils/                # API-клиент, настройка консоли
+├── text_processing.py    # Чанкинг и очистка текста
+├── chroma_db/            # ChromaDB (создаётся ingest.py, не коммитить)
+├── ingest.py
+├── rag_assistant.py
+├── evaluate_rag.py
+├── config.py
+├── requirements.txt
+├── .env.example          # Шаблон конфигурации
+├── AUDIT_REPORT.md       # Отчёт аудита
+└── README.md
 ```
 
