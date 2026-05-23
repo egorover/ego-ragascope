@@ -25,8 +25,12 @@ chroma_client = chromadb.PersistentClient(
     settings=Settings(anonymized_telemetry=False)
 )
 
-# Получаем коллекцию
-collection = chroma_client.get_collection("rag_collection")
+# Получаем или создаем коллекцию
+try:
+    collection = chroma_client.get_collection("rag_collection")
+except Exception:
+    print("Коллекция 'rag_collection' не найдена. Сначала запустите: python ingest.py")
+    exit(1)
 
 
 def get_embedding(text: str) -> list[float]:
