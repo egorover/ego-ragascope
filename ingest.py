@@ -1,5 +1,6 @@
 """
 Скрипт для загрузки документов, создания эмбеддингов и сохранения в ChromaDB
+Поддержка: Российский Proxy API (основной) и OpenAI API (опционально)
 """
 import os
 import re
@@ -9,9 +10,18 @@ import chromadb
 from chromadb.config import Settings
 import config
 
-# Инициализация OpenAI клиента
-client = OpenAI(api_key=config.OPENAI_API_KEY)
-
+# Инициализация клиента в зависимости от выбранного провайдера
+if config.API_PROVIDER == "openai":
+    client = OpenAI(
+        api_key=config.OPENAI_API_KEY
+    )
+else:
+    # Российский Proxy API
+    client = OpenAI(
+        api_key=config.PROXY_API_KEY if config.PROXY_API_KEY else "dummy-key",
+        base_url=config.PROXY_API_URL
+    )
+    
 
 def clean_text(text: str) -> str:
     """
@@ -71,7 +81,7 @@ def get_embedding(text: str) -> list[float]:
         input=text
     )
     return response.data[0].embedding
-
+    
 
 def ingest_documents():
     """

@@ -2,12 +2,16 @@
 
 Минимальный проект для демонстрации работы RAG-системы с локальной векторной базой ChromaDB и оценкой качества через RAGAS.
 
+**Поддержка API:**
+- 🇷🇺 **Российский Proxy API** (основной по умолчанию)
+- 🌐 **OpenAI API** (опционально)
+
 ## Что делает проект
 
 Проект реализует полный цикл RAG:
 1. Загрузка и индексация документов в ChromaDB
 2. Поиск релевантного контекста по запросу
-3. Генерация ответов через OpenAI
+3. Генерация ответов через Proxy API или OpenAI
 4. Оценка качества системы через RAGAS
 
 ## Установка
@@ -17,9 +21,29 @@
 pip install -r requirements.txt
 ```
 
-2. Создайте файл `.env` в корне проекта и добавьте ваш OpenAI API ключ:
+2. Создайте файл `.env` в корне проекта и настройте API:
+
+### Вариант 1: Российский Proxy API (рекомендуется)
 ```
-OPENAI_API_KEY=your_api_key_here
+API_PROVIDER=proxy
+PROXY_API_URL=https://proxy.api.example.com/v1
+PROXY_API_KEY=your_proxy_api_key_here
+```
+
+### Вариант 2: OpenAI API (опционально)
+```
+API_PROVIDER=openai
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+### Дополнительные настройки (опционально):
+```
+EMBEDDING_MODEL=text-embedding-3-small
+CHAT_MODEL=gpt-3.5-turbo
+CHUNK_SIZE=500
+CHUNK_OVERLAP=100
+TOP_K=5
+DATA_DIR=./data
 ```
 
 ## Использование

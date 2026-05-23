@@ -1,5 +1,6 @@
 """
 RAG-ассистент: поиск релевантного контекста и генерация ответов
+Поддержка: Российский Proxy API (основной) и OpenAI API (опционально)
 """
 from openai import OpenAI
 import chromadb
@@ -7,7 +8,18 @@ from chromadb.config import Settings
 import config
 
 # Инициализация клиентов
-openai_client = OpenAI(api_key=config.OPENAI_API_KEY)
+# Создаем клиента в зависимости от выбранного провайдера
+if config.API_PROVIDER == "openai":
+    openai_client = OpenAI(
+        api_key=config.OPENAI_API_KEY
+    )
+else:
+    # Российский Proxy API
+    openai_client = OpenAI(
+        api_key=config.PROXY_API_KEY if config.PROXY_API_KEY else "dummy-key",
+        base_url=config.PROXY_API_URL
+    )
+    
 chroma_client = chromadb.PersistentClient(
     path=config.CHROMA_DB_PATH,
     settings=Settings(anonymized_telemetry=False)
@@ -26,7 +38,7 @@ def get_embedding(text: str) -> list[float]:
         input=text
     )
     return response.data[0].embedding
-
+    
 
 def search_relevant_chunks(query: str, top_k: int = config.TOP_K) -> list[dict]:
     """

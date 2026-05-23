@@ -1,5 +1,6 @@
 """
 Скрипт для оценки качества RAG-системы через RAGAS
+Поддержка: Российский Proxy API (основной) и OpenAI API (опционально)
 """
 from ragas import evaluate
 from ragas.metrics import faithfulness, answer_relevancy, context_precision
@@ -16,6 +17,23 @@ EVALUATION_QUESTIONS = [
     "Можно ли использовать продукт на нескольких устройствах?",
     "Как экспортировать данные из системы?"
 ]
+
+
+def get_langchain_config():
+    """
+    Возвращает конфигурацию для langchain объектов в зависимости от провайдера
+    """
+    if config.API_PROVIDER == "openai":
+        return {
+            "openai_api_key": config.OPENAI_API_KEY,
+            "openai_api_base": None
+        }
+    else:
+        # Российский Proxy API
+        return {
+            "openai_api_key": config.PROXY_API_KEY if config.PROXY_API_KEY else "dummy-key",
+            "openai_api_base": config.PROXY_API_URL
+        }
 
 
 def prepare_dataset(questions: list[str]) -> Dataset:
@@ -72,16 +90,23 @@ def evaluate_rag_system():
     print("=" * 60)
     print("Оценка качества RAG-системы через RAGAS")
     print("=" * 60)
-    
+    print(f"Используемый провайдер: {config.API_PROVIDER.upper()}")
+
     # Подготавливаем датасет
     dataset = prepare_dataset(EVALUATION_QUESTIONS)
-    
+
     print("\nЗапуск оценки метрик...")
     print("Метрики: faithfulness, answer_relevancy, context_precision")
     
+    # Получаем конфигурацию для текущего провайдера
+    langchain_config = get_langchain_config()
+    
     # Убеждаемся, что переменная окружения установлена
     import os
-    os.environ["OPENAI_API_KEY"] = config.OPENAI_API_KEY
+    if config.API_PROVIDER == "openai":
+        os.environ["OPENAI_API_KEY"] = config.OPENAI_API_KEY
+    else:
+        os.environ["OPENAI_API_KEY"] = config.PROXY_API_KEY if config.PROXY_API_KEY else "dummy-key"
     
     # Настройка эмбеддингов и LLM для RAGAS
     # RAGAS требует использовать обертки для langchain объектов
@@ -89,14 +114,14 @@ def evaluate_rag_system():
         from ragas.embeddings import LangchainEmbeddingsWrapper
         from ragas.llms import LangchainLLMWrapper
         
-        # Создаём langchain объекты
+        # Создаём langchain объекты с конфигурацией провайдера
         langchain_embeddings = OpenAIEmbeddings(
             model=config.EMBEDDING_MODEL,
-            openai_api_key=config.OPENAI_API_KEY
+            **langchain_config
         )
         langchain_llm = ChatOpenAI(
             model_name=config.CHAT_MODEL,
-            openai_api_key=config.OPENAI_API_KEY,
+            **langchain_config,
             temperature=0
         )
         
@@ -163,7 +188,7 @@ def evaluate_rag_system():
     print("\n" + "=" * 60)
     print("ДЕТАЛИ ПО ВОПРОСАМ")
     print("=" * 60)
-    
+
     for i, question in enumerate(EVALUATION_QUESTIONS):
         print(f"\nВопрос {i+1}: {question}")
         print(f"  Faithfulness: {result['faithfulness'][i]:.4f} ---точность ответа")
@@ -173,7 +198,7 @@ def evaluate_rag_system():
         else:
             print(f"  Answer Relevancy: не удалось вычислить ---релевантность ответа вопросу")
         print(f"  Context Precision: {result['context_precision'][i]:.4f} ---точность выбранного контекста")
-    
+
     print("\n" + "=" * 60)
     print("Оценка завершена!")
     print("=" * 60)
