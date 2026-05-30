@@ -9,14 +9,9 @@ import os
 from datasets import Dataset
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from ragas import evaluate
-from ragas.metrics import (
-    AnswerRelevancy,
-    ContextPrecision,
-    Faithfulness,
-    answer_relevancy,
-    context_precision,
-    faithfulness,
-)
+from ragas.metrics._faithfulness import faithfulness
+from ragas.metrics._answer_relevance import answer_relevancy
+from ragas.metrics._context_precision import context_precision
 
 import config
 from rag_assistant import ask_assistant
@@ -74,47 +69,55 @@ def _build_metrics():
         os.environ["OPENAI_API_BASE"] = config.PROXY_API_URL
 
     try:
+        # Используем современные фабрики RAGAS для LLM
+        from ragas.llms import llm_factory
         from ragas.embeddings import LangchainEmbeddingsWrapper
-        from ragas.llms import LangchainLLMWrapper
+        from openai import OpenAI
+        from langchain_openai import OpenAIEmbeddings as LangchainOpenAIEmbeddings
 
-        langchain_embeddings = OpenAIEmbeddings(
-            model=config.EMBEDDING_MODEL,
-            **langchain_config,
+        print("  Создаём OpenAI клиент...")
+        # Создаём клиент OpenAI с кастомными настройками
+        openai_client = OpenAI(
+            api_key=os.environ["OPENAI_API_KEY"],
+            base_url=os.environ.get("OPENAI_API_BASE"),
         )
-        langchain_llm = ChatOpenAI(
-            model_name=config.CHAT_MODEL,
-            **langchain_config,
+
+        print(f"  Создаём LLM: {config.CHAT_MODEL}...")
+        # Используем llm_factory для создания современного InstructorLLM
+        ragas_llm = llm_factory(
+            model=config.CHAT_MODEL,
+            provider="openai",
+            client=openai_client,
             temperature=0,
         )
 
-        ragas_embeddings = LangchainEmbeddingsWrapper(langchain_embeddings)
-        ragas_llm = LangchainLLMWrapper(langchain_llm)
-
-        faithfulness_metric = Faithfulness(llm=ragas_llm)
-        answer_relevancy_metric = AnswerRelevancy(
-            llm=ragas_llm, embeddings=ragas_embeddings
+        print(f"  Создаём эмбеддинги: {config.EMBEDDING_MODEL}...")
+        # Используем Langchain эмбеддинги с обёрткой RAGAS
+        langchain_embeddings = LangchainOpenAIEmbeddings(
+            model=config.EMBEDDING_MODEL,
+            **langchain_config,
         )
-        try:
-            context_precision_metric = ContextPrecision(
-                llm=ragas_llm, embeddings=ragas_embeddings
-            )
-        except TypeError:
-            context_precision_metric = ContextPrecision(llm=ragas_llm)
+        ragas_embeddings = LangchainEmbeddingsWrapper(langchain_embeddings)
 
+        print("  Инициализируем метрики...")
+        # Инициализируем старые метрики с LLM и эмбеддингами
+        faithfulness.llm = ragas_llm
+        faithfulness.embeddings = ragas_embeddings
+        answer_relevancy.llm = ragas_llm
+        answer_relevancy.embeddings = ragas_embeddings
+        context_precision.llm = ragas_llm
+        context_precision.embeddings = ragas_embeddings
+
+        print("  Метрики успешно созданы!")
         return [
-            faithfulness_metric,
-            answer_relevancy_metric,
-            context_precision_metric,
+            faithfulness,
+            answer_relevancy,
+            context_precision,
         ]
 
-    except ImportError:
-        print(
-            "Обёртки RAGAS недоступны, используем встроенные метрики "
-            "с переменными окружения"
-        )
-        return [faithfulness, answer_relevancy, context_precision]
     except Exception as exc:
-        print(f"Используем встроенные метрики (предупреждение: {exc})")
+        print(f"  Ошибка создания метрик через llm_factory: {exc}")
+        print("  Используем метрики без кастомизации LLM/эмбеддингов")
         return [faithfulness, answer_relevancy, context_precision]
 
 
@@ -140,7 +143,12 @@ def evaluate_rag_system() -> None:
     print("Метрики: faithfulness, answer_relevancy, context_precision")
 
     metrics_to_use = _build_metrics()
-    result = evaluate(dataset=dataset, metrics=metrics_to_use)
+    # Запускаем оценку без column_map (поля датасета имеют правильные имена)
+    result = evaluate(
+        dataset=dataset,
+        metrics=metrics_to_use,
+        raise_exceptions=False,
+    )
 
     print("\n" + "=" * 60)
     print("РЕЗУЛЬТАТЫ ОЦЕНКИ")
@@ -184,19 +192,30 @@ def evaluate_rag_system() -> None:
         print(f"\nВопрос {i + 1}: {question}")
         try:
             f_val = result["faithfulness"][i]
-            ar_val = result["answer_relevancy"][i]
-            cp_val = result["context_precision"][i]
-        except (KeyError, TypeError):
-            f_val = getattr(result, "faithfulness", [0])[i]
-            ar_val = getattr(result, "answer_relevancy", [float("nan")])[i]
-            cp_val = getattr(result, "context_precision", [0])[i]
+            if math.isnan(f_val):
+                print("  Faithfulness: не удалось вычислить")
+            else:
+                print(f"  Faithfulness: {f_val:.4f}")
+        except (KeyError, TypeError, IndexError, ValueError):
+            print("  Faithfulness: ошибка вычисления")
 
-        print(f"  Faithfulness: {f_val:.4f}")
-        if not math.isnan(ar_val):
-            print(f"  Answer Relevancy: {ar_val:.4f}")
-        else:
-            print("  Answer Relevancy: не удалось вычислить")
-        print(f"  Context Precision: {cp_val:.4f}")
+        try:
+            ar_val = result["answer_relevancy"][i]
+            if math.isnan(ar_val):
+                print("  Answer Relevancy: не удалось вычислить")
+            else:
+                print(f"  Answer Relevancy: {ar_val:.4f}")
+        except (KeyError, TypeError, IndexError, ValueError):
+            print("  Answer Relevancy: ошибка вычисления")
+
+        try:
+            cp_val = result["context_precision"][i]
+            if math.isnan(cp_val):
+                print("  Context Precision: не удалось вычислить")
+            else:
+                print(f"  Context Precision: {cp_val:.4f}")
+        except (KeyError, TypeError, IndexError, ValueError):
+            print("  Context Precision: ошибка вычисления")
 
     print("\n" + "=" * 60)
     print("Оценка завершена!")
