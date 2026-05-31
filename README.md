@@ -1,4 +1,4 @@
-# ego-ragascope
+# Ego-RagaScope
 ego-ragascope: Microscopic insights into your RAG pipeline quality.
 MVP-для анализа качества RAG-пайплайна: retrieval, генерация, источники и метрики.
 
