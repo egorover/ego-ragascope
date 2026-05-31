@@ -1,6 +1,10 @@
 # ego-ragascope
 ego-ragascope: Microscopic insights into your RAG pipeline quality.
-MVP-для микроскопического анализа качества RAG-пайплайна: retrieval, генерация, источники и метрики.
+MVP-для анализа качества RAG-пайплайна: retrieval, генерация, источники и метрики.
+
+[![CI](https://github.com/egorover/ego-ragascope/actions/workflows/ci.yml/badge.svg)](https://github.com/egorover/ego-ragascope/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-9%20passed-success)](https://github.com/egorover/ego-ragascope/actions/workflows/ci.yml)
+[![Security Scan](https://img.shields.io/badge/security-scan%20ok-blue)](https://github.com/egorover/ego-ragascope/actions/workflows/ci.yml)
 
 ## О проекте
 Минимальный проект для демонстрации работы RAG-системы с локальной векторной базой ChromaDB и оценкой качества через RAGAS.
@@ -18,6 +22,20 @@ MVP-для микроскопического анализа качества RA
 - Сравнение ответов с источниками.
 - Отчёты и метрики.
 - Полный цикл RAG: индексация, поиск контекста, генерация ответов.
+
+## CI/CD
+
+Проект полностью автоматизирован:
+
+- ✅ **Автотесты** — 9 unit-тестов на каждом коммите
+- 🔒 **Сканирование секретов** — gitleaks + detect-secrets
+- 🚀 **CI/CD пайплайн** — GitHub Actions
+- 📦 **Python 3.12** — на Ubuntu
+
+```bash
+python -m unittest discover -s tests -v
+# Ran 9 tests in ~0.7s — OK
+```
 
 ## Установка
 
