@@ -19,15 +19,14 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-lock.txt
+          pip install -r requirements.txt
 
       - name: Offline unit tests
-              # Ниже мы безопасно передаем секреты из настроек GitHub в ваши тесты
+        # Ниже мы безопасно передаем секреты из настроек GitHub в ваши тесты
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PROXY_API_KEY: ${{ secrets.PROXY_API_KEY }}
           # Если вашему проекту нужны другие ключи, раскомментируйте и добавьте их ниже:
           # ANOTHER_SECRET_KEY: ${{ secrets.ANOTHER_SECRET_KEY }}
-
         run: python -m unittest discover -s tests -v
 
       - name: Check git secrets history
