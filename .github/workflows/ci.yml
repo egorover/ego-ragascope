@@ -45,12 +45,14 @@ jobs:
       - name: Install pre-commit tools
         run: pip install pre-commit detect-secrets
 
-      - name: detect-secrets (baseline)
-        run: detect-secrets scan --baseline .secrets.baseline
+      - name: Create baseline if not exists
+        run: |
+          if [ ! -f .secrets.baseline ]; then
+            detect-secrets scan --baseline .secrets.baseline
+          fi
 
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # continue-on-error не даст сборке упасть, если сканер найдет ложные секреты в истории
         continue-on-error: true
 
