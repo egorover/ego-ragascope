@@ -57,7 +57,7 @@ print(config.API_PROVIDER)
         result = self._import_config(
             {
                 "API_PROVIDER": "unknown",
-                "PROXY_API_KEY": "test-key",
+                "PROXY_API_KEY": "test-key",  # pragma: allowlist secret
                 "PROXY_API_URL": "https://api.example.com/v1",
             }
         )
