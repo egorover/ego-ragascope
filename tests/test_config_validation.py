@@ -27,7 +27,6 @@ print(config.API_PROVIDER)
             [sys.executable, "-c", script],
             capture_output=True,
             text=True,
-            encoding="utf-8",
             cwd=str(__import__("pathlib").Path(__file__).resolve().parents[1]),
         )
 
@@ -41,7 +40,7 @@ print(config.API_PROVIDER)
             }
         )
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("PROXY_API_KEY", result.stderr)
+        self.assertIn("PROXY_API_KEY", result.stderr or "")
 
     def test_openai_requires_key(self):
         result = self._import_config(
@@ -52,7 +51,7 @@ print(config.API_PROVIDER)
             }
         )
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("OPENAI_API_KEY", result.stderr)
+        self.assertIn("OPENAI_API_KEY", result.stderr or "")
 
     def test_invalid_provider(self):
         result = self._import_config(
@@ -63,7 +62,7 @@ print(config.API_PROVIDER)
             }
         )
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("API_PROVIDER", result.stderr)
+        self.assertIn("API_PROVIDER", result.stderr or "")
 
 
 if __name__ == "__main__":
